@@ -11,7 +11,7 @@ import argparse
 import hashlib
 import os
 import sys
-
+from urllib.parse import urljoin, urlparse
 import chromadb
 import requests
 from bs4 import BeautifulSoup
@@ -51,25 +51,43 @@ def add_chunks(chunks: list[str], source: str):
     metadatas = [{"source": source} for _ in chunks]
 
     collection.upsert(documents=chunks, embeddings=embeddings, ids=ids, metadatas=metadatas)
-    print(f"  ✓  Added {len(chunks)} chunks from {source}")
+    print(f"Added {len(chunks)} chunks from {source}")
 
 
-def ingest_url(url: str):
-    print(f"\n Fetching {url}")
-    try:
-        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-        resp.raise_for_status()
-    except Exception as e:
-        print(f" Failed to fetch URL: {e}")
-        return
+def ingest_url(url: str, crawl: bool = False, max_pages: int = 50):
+    """Scrape a URL. If crawl=True, also follows sublinks on the same domain."""
+    visited = set()
 
-    soup = BeautifulSoup(resp.text, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header"]):
-        tag.decompose()
+    def scrape(page_url: str):
+        if page_url in visited or len(visited) >= max_pages:
+            return
+        visited.add(page_url)
+        print(f"\n Fetching ({len(visited)}/{max_pages}) {page_url}")
 
-    text = soup.get_text(separator="\n")
-    text = "\n".join(line.strip() for line in text.splitlines() if line.strip())
-    add_chunks(chunk_text(text), source=url)
+        try:
+            resp = requests.get(page_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"  Failed: {e}")
+            return
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for tag in soup(["script", "style", "nav", "footer", "header"]):
+            tag.decompose()
+
+        text = soup.get_text(separator="\n")
+        text = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+        add_chunks(chunk_text(text), source=page_url)
+
+        if crawl:
+            base_domain = urlparse(url).netloc
+            for a_tag in soup.find_all("a", href=True):
+                link = urljoin(page_url, a_tag["href"])
+                # Only follow links on the same domain
+                if urlparse(link).netloc == base_domain and link not in visited:
+                    scrape(link)
+
+    scrape(url)
 
 
 def ingest_pdf(path: str):
@@ -100,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument("--url",  action="append", default=[], metavar="URL",  help="URL to scrape")
     parser.add_argument("--pdf",  action="append", default=[], metavar="FILE", help="PDF file to ingest")
     parser.add_argument("--list", action="store_true", help="List all ingested sources")
+    parser.add_argument("--crawl", action="store_true", help="Follow sublinks on the same domain")
     args = parser.parse_args()
 
     if args.list:
@@ -111,7 +130,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     for url in args.url:
-        ingest_url(url)
+        ingest_url(url, crawl=args.crawl, max_pages=50)
     for pdf in args.pdf:
         ingest_pdf(pdf)
 

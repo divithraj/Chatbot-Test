@@ -94,18 +94,21 @@ python ingest.py --pdf my_guide.pdf
     st.markdown("---")
 
     # URL ingestion from sidebar
-    st.markdown("#### Add a URL")
-    new_url = st.text_input("Paste a URL to ingest", placeholder="https://wiki.example.com/page")
-    if st.button("Ingest URL", use_container_width=True) and new_url:
-        with st.spinner("Scraping and embedding..."):
-            try:
-                sys.path.insert(0, str(Path(__file__).parent))
-                from ingest import ingest_url
-                ingest_url(new_url)
-                st.success("Ingested!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
+st.markdown("#### Add a URL")
+new_url = st.text_input("Paste a URL to ingest", placeholder="https://wiki.example.com/page")
+crawl = st.checkbox("Crawl sublinks (same domain)", value=False)
+max_pages = st.slider("Max pages to crawl", min_value=10, max_value=200, value=50, step=10) if crawl else 1
+
+if st.button("Ingest URL", use_container_width=True) and new_url:
+    with st.spinner(f"{'Crawling' if crawl else 'Scraping'} and embedding..."):
+        try:
+            sys.path.insert(0, str(Path(__file__).parent))
+            from ingest import ingest_url
+            ingest_url(new_url, crawl=crawl, max_pages=max_pages)
+            st.success("✓ Ingested!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {e}")
 
     st.markdown("---")
     if st.button("🗑️ Clear chat history", use_container_width=True):
