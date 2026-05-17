@@ -1,0 +1,11 @@
+## Hide since contains API key
+.env
+
+## Hide venv
+venv/
+
+## Hide Python cache
+__pycache__/
+
+## Hide ChromaDB data
+chroma_db/
