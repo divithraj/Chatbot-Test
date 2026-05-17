@@ -145,7 +145,7 @@ for msg in st.session_state.messages:
             )
 
 # Chat input
-if prompt := st.chat_input("Ask about Destiny 2, SWTOR, or your other games..."):
+if prompt := st.chat_input("Ask away"):
     # Show user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):

@@ -88,7 +88,7 @@ def chat(user_query: str, history: list[dict]) -> tuple[str, list[str]]:
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         messages=messages,
-        temperature=0.7,
+        temperature=0.5,
         max_tokens=1024,
     )
 
