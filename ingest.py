@@ -55,20 +55,22 @@ def add_chunks(chunks: list[str], source: str):
 
 
 def ingest_url(url: str, crawl: bool = False, max_pages: int = 50):
-    """Scrape a URL. If crawl=True, also follows sublinks on the same domain."""
+    """Scrape a URL. If crawl=True, also follows sublinks on the same path."""
     visited = set()
+    base_domain = urlparse(url).netloc
+    base_path = urlparse(url).path  # ← added
 
     def scrape(page_url: str):
         if page_url in visited or len(visited) >= max_pages:
             return
         visited.add(page_url)
-        print(f"\n Fetching ({len(visited)}/{max_pages}) {page_url}")
+        print(f"\n🌐 Fetching ({len(visited)}/{max_pages}) {page_url}")
 
         try:
             resp = requests.get(page_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
             resp.raise_for_status()
         except Exception as e:
-            print(f"  Failed: {e}")
+            print(f"  ✗  Failed: {e}")
             return
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -80,15 +82,16 @@ def ingest_url(url: str, crawl: bool = False, max_pages: int = 50):
         add_chunks(chunk_text(text), source=page_url)
 
         if crawl:
-            base_domain = urlparse(url).netloc
             for a_tag in soup.find_all("a", href=True):
                 link = urljoin(page_url, a_tag["href"])
-                # Only follow links on the same domain
-                if urlparse(link).netloc == base_domain and link not in visited:
+                parsed = urlparse(link)
+                # Only follow links on the same domain AND under the same path  ← changed
+                if (parsed.netloc == base_domain
+                        and parsed.path.startswith(base_path)
+                        and link not in visited):
                     scrape(link)
 
     scrape(url)
-
 
 def ingest_pdf(path: str):
     print(f"\n Reading {path}")
