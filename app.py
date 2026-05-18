@@ -115,6 +115,30 @@ if st.button("Ingest URL", use_container_width=True) and new_url:
         st.session_state.messages = []
         st.rerun()
 
+st.markdown("#### ➕ Add a Document")
+uploaded_file = st.file_uploader("Upload a PDF or Word doc", type=["pdf", "docx"])
+if uploaded_file and st.button("Ingest Document", use_container_width=True):
+    with st.spinner("Reading and embedding document..."):
+        try:
+            import tempfile
+            suffix = ".pdf" if uploaded_file.name.endswith(".pdf") else ".docx"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(uploaded_file.read())
+                tmp_path = tmp.name
+
+            if suffix == ".pdf":
+                from ingest import ingest_pdf
+                ingest_pdf(tmp_path)
+            else:
+                from ingest import ingest_docx
+                ingest_docx(tmp_path)
+
+            os.remove(tmp_path)
+            st.success("✓ Ingested!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {e}")
+
 # ── Main UI ───────────────────────────────────────────────────────────────────
 st.markdown("# Knowledge Bot")
 st.markdown("Ask me anything of what you've fed me!  I started off as a gaming knowledge base, but I can chat about general topics too.  Please add in knowledge sources if needed.")
